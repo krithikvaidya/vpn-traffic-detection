@@ -36,6 +36,10 @@ def parse_packet(packet):
     """
     global total_packets
     global suspicious_packets
+
+    if packet:
+        total_packets += 1
+
     if packet and packet.haslayer('UDP') and packet.haslayer ('DNS'):
 
         if packet.haslayer ('DNSRR'):
@@ -51,14 +55,17 @@ def parse_packet(packet):
                         print ("Suspicious rrname found: " + str(packet[DNS].an[i].rrname))
                         print ("Corresponding resource record address: " + str(packet[DNS].an[i].rdata), end="\n\n")
                         suspicious_ips.append (str(packet[DNS].an[i].rdata))
+                        suspicious_packets += 1
 
 
     if packet and packet.haslayer('TCP'):
 
-        response_sequence_number = tcp.seq
-        response_acknowledgement_number = tcp.ack
-        response_timestamp = tcp.time
-        response_payload_len += len(tcp.payload)
+        sequence_number = tcp.seq
+        acknowledgement_number = tcp.ack
+        timestamp = tcp.time
+        payload_len += len(tcp.payload)
+        tcp_sport=tcp.sport
+        tcp_dport=tcp.dport
 
         if IP in pkt:
             ip_src=str(pkt[IP].src)
@@ -68,11 +75,11 @@ def parse_packet(packet):
 
                 if ip_src == sus:
                     print ("Suspicious incoming traffic encountered from IP " + ip_src)
+                    suspicious_packets += 1
                 elif ip_dst == sus:
                     print ("Suspicious outgoing traffic encountered to IP " + ip_dst)
+                    suspicious_packets += 1
                 
-
-
         else:
             pass
         
@@ -88,10 +95,9 @@ def network_sniffer():
     interfaces = get_windows_if_list()
     pprint(interfaces)
 
-    print('\n[*] Start Sniffer\n')
+    print('\n** Start Sniffer **\n')
 
     sniff(
-        # filter="",
         iface=r'Intel(R) Wireless-AC 9560 160MHz', prn=parse_packet
     )
 
