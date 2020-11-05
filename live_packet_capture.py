@@ -15,9 +15,10 @@ outputFile = open('vpntraffictest.csv', 'w', newline='')
 writer = csv.writer(outputFile)
 
 # Write out the top row
-writer.writerow(['Protocol_Transport', 'Protocol_Network', 'TTL', 'SrcAddr', 'DestAddr',
-'SrcPort', 'DestPort', 'SeqNum', 'AckNum', 'Flag', 'dataSize',
-'Service', 'Label'])
+writer.writerow(['Suspicious', 'Timestamp', 'Transport_Protocol', 'Network_Protocol', 'TTL', 'SrcAddr', 'DestAddr',
+                 'SrcPort', 'DestPort', 'SeqNum', 'AckNum'])
+                #  , 'Flag', 'dataSize',
+                #  'Service', 'Label'])
 
 suspicious_hosts_suffix = [
     'tcdn.me.\'',  # Browsec suffix
@@ -31,6 +32,7 @@ suspicious_hosts_prefix = [
 hotspot_shield = [
     '196.5'
 ]
+
 suspicious_ips = []
 
 possible_tor_ips = []
@@ -38,6 +40,7 @@ likely_tor_ips = []
 
 total_packets = 0
 suspicious_packets = 0
+
 
 def parse_packet(packet):
     """
@@ -50,16 +53,39 @@ def parse_packet(packet):
     global suspicious_ips
     global possible_tor_ips
 
+    suspicious = "NO"
+    timestamp = "-"
+    protocol1 = "-"
+    protocol2 = "-"
+    ttl = "-"
+    ip_src = "-"
+    ip_dst = "-"
+    src_port = "-"
+    dst_port = "-"
+    seq_number = "-"
+    ack_number = "-"
+
     if packet:
         total_packets += 1
 
-    if packet and packet.haslayer('UDP') and packet.haslayer ('DNS'):
+    if packet and packet.haslayer('UDP'):
 
-        if packet.haslayer ('DNSRR'):
+        udp = packet.getlayer('UDP')
+
+        protocol1 = "UDP"
+        src_port = udp.sport
+        dst_port = udp.dport
+        timestamp = udp.time
+
+    if packet and packet.haslayer('UDP') and packet.haslayer('DNS'):
+
+        protocol2 = "DNS"
+
+        if packet.haslayer('DNSRR'):
 
             # Check if the hostname is suspicious
 
-            for i in range (packet['DNS'].ancount):
+            for i in range(packet['DNS'].ancount):
 
                 # print (str(packet[DNS].an[i].rrname))
 
@@ -67,77 +93,94 @@ def parse_packet(packet):
 
                     if (str(packet[DNS].an[i].rrname).endswith(sus)):
 
-                        print ("Suspicious rrname found: " + str(packet[DNS].an[i].rrname))
-                        print ("Corresponding resource record address: " + str(packet[DNS].an[i].rdata), end="\n\n")
-                        suspicious_ips.append (str(packet[DNS].an[i].rdata))
+                        print("Suspicious rrname found: " +
+                              str(packet[DNS].an[i].rrname))
+                        print("Corresponding resource record address: " +
+                              str(packet[DNS].an[i].rdata), end="\n\n")
+                        suspicious_ips.append(str(packet[DNS].an[i].rdata))
                         suspicious_packets += 1
+                        suspicious = "YES"
 
                 for sus in suspicious_hosts_prefix:
 
                     if (packet[DNS].an[i].rrname.decode('ascii').startswith(sus)):
 
-                        print ("Suspicious rrname found: " + str(packet[DNS].an[i].rrname))
-                        print ("Corresponding resource record address: " + str(packet[DNS].an[i].rdata), end="\n\n")
-                        suspicious_ips.append (str(packet[DNS].an[i].rdata))
+                        print("Suspicious rrname found: " +
+                              str(packet[DNS].an[i].rrname))
+                        print("Corresponding resource record address: " +
+                              str(packet[DNS].an[i].rdata), end="\n\n")
+                        suspicious_ips.append(str(packet[DNS].an[i].rdata))
                         suspicious_packets += 1
-
+                        suspicious = "YES"
 
     if packet and packet.haslayer('TCP'):
 
+        protocol1 = "TCP"
         tcp = packet.getlayer('TCP')
         # pprint (tcp)
 
-        sequence_number = tcp.seq
-        acknowledgement_number = tcp.ack
+        seq_number = tcp.seq
+        ack_number = tcp.ack
         timestamp = tcp.time
         # payload_len = len(tcp.payload)
-        tcp_sport=tcp.sport
-        tcp_dport=tcp.dport
-
-        ip_src = None
-        ip_dst = None
+        src_port = tcp.sport
+        dst_port = tcp.dport
 
         if IP in packet:
 
-            ip_src=packet[IP].src
-            ip_dst=packet[IP].dst
+            protocol2 = "IP"
+            ip_src = packet[IP].src
+            ip_dst = packet[IP].dst
 
-            if (tcp_dport >= 9000 and tcp_dport <= 9020):
+            if (dst_port >= 9000 and dst_port <= 9020):
 
                 if str(ip_dst) not in possible_tor_ips:
-                    print ("Possible tor ip: " + str(ip_dst))
-                    possible_tor_ips.append (str(ip_dst))
+                    print("Possible tor ip: " + str(ip_dst))
+                    possible_tor_ips.append(str(ip_dst))
+                    suspicious_packets += 1
+                    suspicious = "YES"
 
             for hs_ip in hotspot_shield:
 
                 if ip_src.startswith(hs_ip):
-                    print ("Suspicious incoming traffic encountered from IP " + str(ip_src))
+                    print(
+                        "Suspicious incoming traffic encountered from IP " + str(ip_src))
                     suspicious_packets += 1
+                    suspicious = "YES"
                 elif ip_dst.startswith(hs_ip):
-                    print ("Suspicious outgoing traffic encountered to IP " + str(ip_dst))
+                    print(
+                        "Suspicious outgoing traffic encountered to IP " + str(ip_dst))
                     suspicious_packets += 1
+                    suspicious = "YES"
 
             for sus in suspicious_ips:
 
                 if str(ip_src) == str(sus):
-                    print ("Suspicious incoming traffic encountered from IP " + str(ip_src))
+                    print(
+                        "Suspicious incoming traffic encountered from IP " + str(ip_src))
                     suspicious_packets += 1
+                    suspicious = "YES"
                 elif str(ip_dst) == str(sus):
-                    print ("Suspicious outgoing traffic encountered to IP " + str(ip_dst))
+                    print(
+                        "Suspicious outgoing traffic encountered to IP " + str(ip_dst))
                     suspicious_packets += 1
+                    suspicious = "YES"
 
             for sus in possible_tor_ips:
 
                 if str(ip_src) == str(sus):
-                    print ("Suspicious (TOR) incoming traffic encountered from IP " + str(ip_src))
+                    print(
+                        "Suspicious (TOR) incoming traffic encountered from IP " + str(ip_src))
                     suspicious_packets += 1
+                    suspicious = "YES"
                 elif str(ip_dst) == str(sus):
-                    print ("Suspicious (TOR) outgoing traffic encountered to IP " + str(ip_dst))
+                    print(
+                        "Suspicious (TOR) outgoing traffic encountered to IP " + str(ip_dst))
                     suspicious_packets += 1
-
+                    suspicious = "YES"
 
         if 'TLS' in packet:
-            
+
             try:
 
                 # packet['TLS'].show()
@@ -153,25 +196,28 @@ def parse_packet(packet):
                     except:
                         server_name = packet['TLS'].msg[0].ext[1].servernames[0].servername
                         server_name = server_name.decode('ascii')
+                        
+                    if (server_name.startswith('www')):
 
-                    pprint (server_name)
-
-                    if (server_name.startswith ('www')):
-
-                        if str (ip_dst) in possible_tor_ips:
-                            print ("Suspicious (TOR) outgoing traffic encountered to IP " + str(ip_dst))
+                        if str(ip_dst) in possible_tor_ips:
+                            print(
+                                "Suspicious (TOR) outgoing traffic encountered to IP " + str(ip_dst))
                             likely_tor_ips.append(str(ip_dst))
 
+                            suspicious_packets += 1
+                            suspicious = "YES"
+
             except Exception as e:
-                if str (e) != 'msgtype' and str(e) != 'ext':
-                    print ('\n\nError: ')
-                    print (e)
-                    print ('\n\n')
+                if str(e) != 'msgtype' and str(e) != 'ext':
+                    print('\n\nError: ')
+                    print(e)
+                    print('\n\n')
                     packet['TLS'].show()
-                    print ('\n\n')
-                
-        else:
-            pass
+                    print('\n\n')
+
+    
+    writer.writerow([suspicious, timestamp, protocol1, protocol2, ttl, ip_src, ip_dst,
+                 src_port, dst_port, seq_number, ack_number])
 
 
 def network_sniffer():
