@@ -9,6 +9,19 @@ import csv
 from signal import signal, SIGINT
 
 
+# Colourizing terminal output
+class bcolours:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 # disable verbose mode
 conf.verb = 0
 
@@ -18,8 +31,8 @@ writer = csv.writer(outputFile)
 # Write out the top row
 writer.writerow(['Suspicious', 'Timestamp', 'Transport_Protocol', 'Network_Protocol', 'TTL', 'SrcAddr', 'DestAddr',
                  'SrcPort', 'DestPort', 'SeqNum', 'AckNum'])
-                #  , 'Flag', 'dataSize',
-                #  'Service', 'Label'])
+#  , 'Flag', 'dataSize',
+#  'Service', 'Label'])
 
 suspicious_hosts_suffix = [
     'tcdn.me.\'',  # Browsec suffix
@@ -133,7 +146,6 @@ def parse_packet(packet):
             ip_src = packet[IP].src
             ip_dst = packet[IP].dst
 
-
             for hs_ip in hotspot_shield:
 
                 if ip_src.startswith(hs_ip):
@@ -201,17 +213,11 @@ def parse_packet(packet):
                         suspicious_packets += 1
                         suspicious = "YES"
 
-            except Exception as e:
-                if str(e) != 'msgtype' and str(e) != 'ext':
-                    print('\n\nError: ')
-                    print(e)
-                    print('\n\n')
-                    packet['TLS'].show()
-                    print('\n\n')
+            except:
+                pass
 
-    
     writer.writerow([suspicious, timestamp, protocol1, protocol2, ttl, ip_src, ip_dst,
-                 src_port, dst_port, seq_number, ack_number])
+                     src_port, dst_port, seq_number, ack_number])
 
 
 def network_sniffer():
@@ -222,32 +228,38 @@ def network_sniffer():
     interfaces = get_windows_if_list()
     pprint(interfaces)
 
-    print('\n** Start Sniffer **\n')
+    print("\n========================================\n")
+    print("\nListening for packets...")
+    print("\n========================================\n")
 
     load_layer("tls")
+
     sniff(
         iface=r'Intel(R) Wireless-AC 9560 160MHz', prn=parse_packet
     )
 
 
 def handler(signal_received, frame):
-    
-    print ("\n\n========================================\n")
+
+    print("\n\n========================================\n")
     print('\nSIGINT detected')
-    print('\n\nTotal Packets Captured: ' + str(total_packets))
-    print ('Number of Suspicious Packets: ' + str(suspicious_packets))
-    print ("\n\n========================================\n")
+    print(
+        f'\n\n{bcolours.OKCYAN}Total Packets Captured: {bcolours.ENDC}' + str(total_packets))
+    print(f'{bcolours.WARNING}Number of Suspicious Packets: {bcolours.ENDC}' +
+          str(suspicious_packets))
+    perc = float("{:.2f}".format((suspicious_packets/total_packets) * 100))
+    print(f'{bcolours.UNDERLINE}Percentage of suspicious packets{bcolours.ENDC}: {bcolours.FAIL}{perc}{bcolours.ENDC}%')
+    print("\n\n========================================\n")
     exit(0)
 
 
-def populate_tor_ips ():
+def populate_tor_ips():
 
     with open("tor_exit_nodes.txt", "r") as f:
 
         for line in f:
 
             likely_tor_ips.append(line.strip())
-
 
 
 if __name__ == '__main__':
