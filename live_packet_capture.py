@@ -19,9 +19,9 @@ writer.writerow(['Version', 'Protocol', 'TTL', 'SrcAddr', 'DestAddr',
 'SrcPort', 'DestPort', 'SeqNum', 'AckNum', 'Flag', 'dataSize',
 'Service', 'Label'])
 
-suspicious_hosts = ['tcdn.me',  # Browsec
-    'nodes.gen4.ninja',  # Zenmate
-    'cohen-feelings.org'  # Hoxx
+suspicious_hosts = ['tcdn.me.\'',  # Browsec
+    'nodes.gen4.ninja.\'',  # Zenmate
+    'cohen-feelings.org.\''  # Hoxx
 ]
 hotspot_shield = []
 suspicious_ips = []
@@ -41,37 +41,17 @@ def parse_packet(packet):
 
                 for sus in suspicious_hosts:
 
-                    if (packet[DNS].an[i].rrname.endswith(sus)):
+                    if (str(packet[DNS].an[i].rrname).endswith(sus)):
 
                         print ("Suspicious rrname found: " + str(packet[DNS].an[i].rrname))
-                        print ("Corresponding resource record address: " + str(packet[DNS].an[i].rdata))
+                        print ("Corresponding resource record address: " + str(packet[DNS].an[i].rdata), end="\n\n")
                         suspicious_ips.append (str(packet[DNS].an[i].rdata))
 
-            print ('\n\n')
-        # pprint (packet)
 
-        # if packet.qdcount > 0 and isinstance(packet.qd, DNSQR):
-        #     name = packet.qd.qname
-        #     # print (name)
-            
-        # elif packet.arcount > 0 and isinstance(packet.ar, DNSRR):
-        #     name = packet.ar
-        #     pprint (name)
-        #     # print (packet.an.rrname)
-        #     # print (packet.an.type)
-        #     # print (packet.an.rclass)
-        #     # print (packet.an.ttl)
-        #     # print (packet.an.rdlen)
-            
-        # else:
-        #     return
+    if packet and packet.haslayer('TCP'):
 
-        
-
-
-    # if packet and packet.haslayer('TCP'):
-    #     tcp = packet.getlayer('TCP')
-    #     tcp.show()
+        tcp = packet.getlayer('TCP')
+        pprint (tcp)
 
 
 def network_sniffer():
@@ -92,3 +72,22 @@ def network_sniffer():
 
 if __name__ == '__main__':
     network_sniffer()
+
+
+        # pprint (packet)
+
+        # if packet.qdcount > 0 and isinstance(packet.qd, DNSQR):
+        #     name = packet.qd.qname
+        #     # print (name)
+            
+        # elif packet.arcount > 0 and isinstance(packet.ar, DNSRR):
+        #     name = packet.ar
+        #     pprint (name)
+        #     # print (packet.an.rrname)
+        #     # print (packet.an.type)
+        #     # print (packet.an.rclass)
+        #     # print (packet.an.ttl)
+        #     # print (packet.an.rdlen)
+            
+        # else:
+        #     return
