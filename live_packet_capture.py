@@ -6,6 +6,7 @@ from scapy.all import *
 from scapy.layers.dns import DNSRR, DNS, DNSQR
 import sys
 import csv
+from signal import signal, SIGINT
 
 
 # disable verbose mode
@@ -35,7 +36,6 @@ hotspot_shield = [
 
 suspicious_ips = []
 
-possible_tor_ips = []
 likely_tor_ips = []
 
 total_packets = 0
@@ -51,7 +51,7 @@ def parse_packet(packet):
     global suspicious_packets
     global hotspot_shield
     global suspicious_ips
-    global possible_tor_ips
+    global likely_tor_ips
 
     suspicious = "NO"
     timestamp = "-"
@@ -123,6 +123,7 @@ def parse_packet(packet):
         ack_number = tcp.ack
         timestamp = tcp.time
         # payload_len = len(tcp.payload)
+        ttl = packet.ttl
         src_port = tcp.sport
         dst_port = tcp.dport
 
@@ -132,13 +133,6 @@ def parse_packet(packet):
             ip_src = packet[IP].src
             ip_dst = packet[IP].dst
 
-            if (dst_port >= 9000 and dst_port <= 9020):
-
-                if str(ip_dst) not in possible_tor_ips:
-                    print("Possible tor ip: " + str(ip_dst))
-                    possible_tor_ips.append(str(ip_dst))
-                    suspicious_packets += 1
-                    suspicious = "YES"
 
             for hs_ip in hotspot_shield:
 
@@ -166,7 +160,7 @@ def parse_packet(packet):
                     suspicious_packets += 1
                     suspicious = "YES"
 
-            for sus in possible_tor_ips:
+            for sus in likely_tor_ips:
 
                 if str(ip_src) == str(sus):
                     print(
@@ -196,16 +190,16 @@ def parse_packet(packet):
                     except:
                         server_name = packet['TLS'].msg[0].ext[1].servernames[0].servername
                         server_name = server_name.decode('ascii')
-                        
-                    if (server_name.startswith('www')):
 
-                        if str(ip_dst) in possible_tor_ips:
-                            print(
-                                "Suspicious (TOR) outgoing traffic encountered to IP " + str(ip_dst))
-                            likely_tor_ips.append(str(ip_dst))
+                    if (server_name.startswith('www') and (dst_port >= 9000 and dst_port <= 9020)):
 
-                            suspicious_packets += 1
-                            suspicious = "YES"
+                        print(
+                            "Suspicious (TOR) outgoing traffic encountered to IP " + str(ip_dst))
+
+                        likely_tor_ips.append(str(ip_dst))
+
+                        suspicious_packets += 1
+                        suspicious = "YES"
 
             except Exception as e:
                 if str(e) != 'msgtype' and str(e) != 'ext':
@@ -236,5 +230,32 @@ def network_sniffer():
     )
 
 
+def handler(signal_received, frame):
+    
+    print ("\n\n========================================\n")
+    print('\nSIGINT detected')
+    print('\n\nTotal Packets Captured: ' + str(total_packets))
+    print ('Number of Suspicious Packets: ' + str(suspicious_packets))
+    print ("\n\n========================================\n")
+    exit(0)
+
+
+def populate_tor_ips ():
+
+    with open("tor_exit_nodes.txt", "r") as f:
+
+        for line in f:
+
+            likely_tor_ips.append(line.strip())
+
+
+
 if __name__ == '__main__':
+
+    # for writing suspicious and total packet counts at termination
+
+    signal(SIGINT, handler)
+
+    populate_tor_ips()
+
     network_sniffer()
