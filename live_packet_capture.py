@@ -102,8 +102,11 @@ def parse_packet(packet):
             ip_src=packet[IP].src
             ip_dst=packet[IP].dst
 
-            if (tcp_dport >= 9000 and tcp_dport <= 9200):
-                possible_tor_ips.append (str(ip_dst))
+            if (tcp_dport >= 9000 and tcp_dport <= 9020):
+
+                if str(ip_dst) not in possible_tor_ips:
+                    print ("Possible tor ip: " + str(ip_dst))
+                    possible_tor_ips.append (str(ip_dst))
 
             for hs_ip in hotspot_shield:
 
@@ -134,13 +137,16 @@ def parse_packet(packet):
 
 
         if 'TLS' in packet:
+
+            print ('start')
             
             try:
 
                 # packet['TLS'].show()
                 x = packet['TLS'].msg[0].msgtype
+                print (x)
 
-                if (x == 1):  # client hello
+                if x == 1:  # client hello
 
                     # Check if there is a www host name in the packet
 
@@ -156,12 +162,18 @@ def parse_packet(packet):
                     if (server_name.startswith ('www')):
 
                         if str (ip_dst) in possible_tor_ips:
-                            print ("Suspicious Client Hello encountered to IP " + str(ip_dst) + "with server name: " + server_name)
+                            print ("Suspicious Client Hello encountered to IP " + str(ip_dst) + " with server name: " + server_name)
                             likely_tor_ips.append(str(ip_dst))
 
             except Exception as e:
-                if (str(e) != "msgtype"):
+                if str (e) != 'msgtype' and str(e) != 'ext':
+                    print ('\n\nError: ')
                     print (e)
+                    print ('\n\n')
+                    packet['TLS'].show()
+                    print ('\n\n')
+
+            print ('next')
                 
         else:
             pass
