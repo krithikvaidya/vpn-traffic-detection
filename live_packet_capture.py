@@ -15,7 +15,7 @@ outputFile = open('vpntraffictest.csv', 'w', newline='')
 writer = csv.writer(outputFile)
 
 # Write out the top row
-writer.writerow(['Version', 'Protocol', 'TTL', 'SrcAddr', 'DestAddr',
+writer.writerow(['Protocol_Transport', 'Protocol_Network', 'TTL', 'SrcAddr', 'DestAddr',
 'SrcPort', 'DestPort', 'SeqNum', 'AckNum', 'Flag', 'dataSize',
 'Service', 'Label'])
 
@@ -126,7 +126,7 @@ def parse_packet(packet):
                     print ("Suspicious outgoing traffic encountered to IP " + str(ip_dst))
                     suspicious_packets += 1
 
-            for sus in likely_tor_ips:
+            for sus in possible_tor_ips:
 
                 if str(ip_src) == str(sus):
                     print ("Suspicious (TOR) incoming traffic encountered from IP " + str(ip_src))
@@ -137,14 +137,11 @@ def parse_packet(packet):
 
 
         if 'TLS' in packet:
-
-            print ('start')
             
             try:
 
                 # packet['TLS'].show()
                 x = packet['TLS'].msg[0].msgtype
-                print (x)
 
                 if x == 1:  # client hello
 
@@ -162,7 +159,7 @@ def parse_packet(packet):
                     if (server_name.startswith ('www')):
 
                         if str (ip_dst) in possible_tor_ips:
-                            print ("Suspicious Client Hello encountered to IP " + str(ip_dst) + " with server name: " + server_name)
+                            print ("Suspicious (TOR) outgoing traffic encountered to IP " + str(ip_dst))
                             likely_tor_ips.append(str(ip_dst))
 
             except Exception as e:
@@ -172,8 +169,6 @@ def parse_packet(packet):
                     print ('\n\n')
                     packet['TLS'].show()
                     print ('\n\n')
-
-            print ('next')
                 
         else:
             pass
