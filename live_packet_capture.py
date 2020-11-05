@@ -19,10 +19,15 @@ writer.writerow(['Version', 'Protocol', 'TTL', 'SrcAddr', 'DestAddr',
 'SrcPort', 'DestPort', 'SeqNum', 'AckNum', 'Flag', 'dataSize',
 'Service', 'Label'])
 
-suspicious_hosts = ['tcdn.me.\'',  # Browsec
-    'nodes.gen4.ninja.\'',  # Zenmate
-    'cohen-feelings.org.\''  # Hoxx
+suspicious_hosts_suffix = [
+    'tcdn.me.\'',  # Browsec suffix
+    'nodes.gen4.ninja.\'',  # Zenmate suffix
 ]
+
+suspicious_hosts_prefix = [
+    'azbe-9b1c5b'  # Hoxx prefix
+]
+
 hotspot_shield = []
 suspicious_ips = []
 
@@ -48,9 +53,20 @@ def parse_packet(packet):
 
             for i in range (packet['DNS'].ancount):
 
-                for sus in suspicious_hosts:
+                # print (str(packet[DNS].an[i].rrname))
+
+                for sus in suspicious_hosts_suffix:
 
                     if (str(packet[DNS].an[i].rrname).endswith(sus)):
+
+                        print ("Suspicious rrname found: " + str(packet[DNS].an[i].rrname))
+                        print ("Corresponding resource record address: " + str(packet[DNS].an[i].rdata), end="\n\n")
+                        suspicious_ips.append (str(packet[DNS].an[i].rdata))
+                        suspicious_packets += 1
+
+                for sus in suspicious_hosts_prefix:
+
+                    if (packet[DNS].an[i].rrname.decode('ascii').startswith(sus)):
 
                         print ("Suspicious rrname found: " + str(packet[DNS].an[i].rrname))
                         print ("Corresponding resource record address: " + str(packet[DNS].an[i].rdata), end="\n\n")
@@ -60,31 +76,32 @@ def parse_packet(packet):
 
     if packet and packet.haslayer('TCP'):
 
+        tcp = packet.getlayer('TCP')
+        # pprint (tcp)
+
         sequence_number = tcp.seq
         acknowledgement_number = tcp.ack
         timestamp = tcp.time
-        payload_len += len(tcp.payload)
+        payload_len = len(tcp.payload)
         tcp_sport=tcp.sport
         tcp_dport=tcp.dport
 
-        if IP in pkt:
-            ip_src=str(pkt[IP].src)
-            ip_dst=str(pkt[IP].dst)
+        if IP in packet:
+
+            ip_src=str(packet[IP].src)
+            ip_dst=str(packet[IP].dst)
 
             for sus in suspicious_ips:
 
-                if ip_src == sus:
+                if str(ip_src) == str(sus):
                     print ("Suspicious incoming traffic encountered from IP " + ip_src)
                     suspicious_packets += 1
-                elif ip_dst == sus:
+                elif str(ip_dst) == str(sus):
                     print ("Suspicious outgoing traffic encountered to IP " + ip_dst)
                     suspicious_packets += 1
                 
         else:
             pass
-        
-        tcp = packet.getlayer('TCP')
-        # pprint (tcp)
 
 
 def network_sniffer():
