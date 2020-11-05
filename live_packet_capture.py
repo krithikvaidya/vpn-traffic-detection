@@ -33,6 +33,8 @@ hotspot_shield = [
 ]
 suspicious_ips = []
 
+possible_tor_ips = []
+
 total_packets = 0
 suspicious_packets = 0
 
@@ -43,6 +45,9 @@ def parse_packet(packet):
     """
     global total_packets
     global suspicious_packets
+    global hotspot_shield
+    global suspicious_ips
+    global possible_tor_ips
 
     if packet:
         total_packets += 1
@@ -84,9 +89,12 @@ def parse_packet(packet):
         sequence_number = tcp.seq
         acknowledgement_number = tcp.ack
         timestamp = tcp.time
-        payload_len = len(tcp.payload)
+        # payload_len = len(tcp.payload)
         tcp_sport=tcp.sport
         tcp_dport=tcp.dport
+
+        ip_src = None
+        ip_dst = None
 
         if IP in packet:
 
@@ -110,6 +118,35 @@ def parse_packet(packet):
                 elif str(ip_dst) == str(sus):
                     print ("Suspicious outgoing traffic encountered to IP " + str(ip_dst))
                     suspicious_packets += 1
+
+        if 'TLS' in packet:
+            
+            try:
+
+                x = packet['TLS'].msg[0].msgtype
+
+                if x == 1:  # client hello
+
+                    if str(ip_dst) in possible_tor_ips:
+
+                        # Check if there is a www host name in the packet
+
+                        server_name = packet['TLS'].msg[0].ext[1].servernames[0].servername
+                        server_name = server_name.decode('ascii')
+
+                        if (server_name.startswith ('www')):
+                            print ("Suspicious Client Hello encountered to IP " + str(ip_dst) + "with server name: " + server_name)
+                            possible_tor_ips.append(str(ip_dst))
+
+                            
+
+
+            except Exception:
+                pass
+
+            if 'msgtype' in packet['TLS'].msg[0]:
+                print ("YES")
+
                 
         else:
             pass
@@ -125,6 +162,7 @@ def network_sniffer():
 
     print('\n** Start Sniffer **\n')
 
+    load_layer("tls")
     sniff(
         iface=r'Intel(R) Wireless-AC 9560 160MHz', prn=parse_packet
     )
@@ -132,22 +170,3 @@ def network_sniffer():
 
 if __name__ == '__main__':
     network_sniffer()
-
-
-        # pprint (packet)
-
-        # if packet.qdcount > 0 and isinstance(packet.qd, DNSQR):
-        #     name = packet.qd.qname
-        #     # print (name)
-            
-        # elif packet.arcount > 0 and isinstance(packet.ar, DNSRR):
-        #     name = packet.ar
-        #     pprint (name)
-        #     # print (packet.an.rrname)
-        #     # print (packet.an.type)
-        #     # print (packet.an.rclass)
-        #     # print (packet.an.ttl)
-        #     # print (packet.an.rdlen)
-            
-        # else:
-        #     return
