@@ -26,11 +26,16 @@ suspicious_hosts = ['tcdn.me.\'',  # Browsec
 hotspot_shield = []
 suspicious_ips = []
 
+total_packets = 0
+suspicious_packets = 0
+
 def parse_packet(packet):
     """
     network_sniffer callback function.
     
     """
+    global total_packets
+    global suspicious_packets
     if packet and packet.haslayer('UDP') and packet.haslayer ('DNS'):
 
         if packet.haslayer ('DNSRR'):
@@ -50,8 +55,29 @@ def parse_packet(packet):
 
     if packet and packet.haslayer('TCP'):
 
+        response_sequence_number = tcp.seq
+        response_acknowledgement_number = tcp.ack
+        response_timestamp = tcp.time
+        response_payload_len += len(tcp.payload)
+
+        if IP in pkt:
+            ip_src=str(pkt[IP].src)
+            ip_dst=str(pkt[IP].dst)
+
+            for sus in suspicious_ips:
+
+                if ip_src == sus:
+                    print ("Suspicious incoming traffic encountered from IP " + ip_src)
+                elif ip_dst == sus:
+                    print ("Suspicious outgoing traffic encountered to IP " + ip_dst)
+                
+
+
+        else:
+            pass
+        
         tcp = packet.getlayer('TCP')
-        pprint (tcp)
+        # pprint (tcp)
 
 
 def network_sniffer():
