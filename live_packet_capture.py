@@ -28,7 +28,9 @@ suspicious_hosts_prefix = [
     'azbe-9b1c5b'  # Hoxx prefix
 ]
 
-hotspot_shield = []
+hotspot_shield = [
+    '196.5'
+]
 suspicious_ips = []
 
 total_packets = 0
@@ -88,16 +90,25 @@ def parse_packet(packet):
 
         if IP in packet:
 
-            ip_src=str(packet[IP].src)
-            ip_dst=str(packet[IP].dst)
+            ip_src=packet[IP].src
+            ip_dst=packet[IP].dst
+
+            for hs_ip in hotspot_shield:
+
+                if ip_src.startswith(hs_ip):
+                    print ("Suspicious incoming traffic encountered from IP " + str(ip_src))
+                    suspicious_packets += 1
+                elif ip_dst.startswith(hs_ip):
+                    print ("Suspicious outgoing traffic encountered to IP " + str(ip_dst))
+                    suspicious_packets += 1
 
             for sus in suspicious_ips:
 
                 if str(ip_src) == str(sus):
-                    print ("Suspicious incoming traffic encountered from IP " + ip_src)
+                    print ("Suspicious incoming traffic encountered from IP " + str(ip_src))
                     suspicious_packets += 1
                 elif str(ip_dst) == str(sus):
-                    print ("Suspicious outgoing traffic encountered to IP " + ip_dst)
+                    print ("Suspicious outgoing traffic encountered to IP " + str(ip_dst))
                     suspicious_packets += 1
                 
         else:
